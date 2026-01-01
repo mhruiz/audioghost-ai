@@ -1,14 +1,58 @@
 version: '3.8'
 
 services:
-  redis:
+  api:
+    build: .
+    container_name: audioghost-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/uploads:/app/backend/uploads
+      - ./data/outputs:/app/backend/outputs
+      - ./data/checkpoints:/app/checkpoints
+      # Mount backend for hot-reload/development if needed, 
+      # though the image has a copy. This overlays the local code.
+      - ./backend:/app/backend
+    environment:
+      - REDIS_URL=redis://redis_docker:6379/0
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      - redis_docker
+
+  worker:
+    build: .
+    container_name: audioghost-worker
+    volumes:
+      - ./data/uploads:/app/backend/uploads
+      - ./data/outputs:/app/backend/outputs
+      - ./data/checkpoints:/app/checkpoints
+      - ./backend:/app/backend
+    environment:
+      - REDIS_URL=redis://redis_docker:6379/0
+    # Use 'solo' pool for GPU tasks to avoid concurrency issues if VRAM is tight
+    command: celery -A workers.celery_app worker --loglevel=info --pool=solo
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      - redis_docker
+
+  redis_docker:
     image: redis:alpine
-    container_name: audioghost-redis
+    container_name: audioghost-redis-docker
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - ./data/redis:/data
     restart: unless-stopped
-
-volumes:
-  redis_data:

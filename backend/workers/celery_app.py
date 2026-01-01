@@ -3,10 +3,12 @@ Celery Application Configuration
 """
 from celery import Celery
 
+import os
+
 celery_app = Celery(
     "audioghost",
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/0",
+    broker=os.getenv("REDIS_URL", "redis://redis_docker:6379/0"),
+    backend=os.getenv("REDIS_URL", "redis://redis_docker:6379/0"),
     include=["workers.tasks"]
 )
 
