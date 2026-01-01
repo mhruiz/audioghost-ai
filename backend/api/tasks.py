@@ -230,6 +230,77 @@ async def cancel_task(task_id: str):
     return {"success": True, "message": "Task cancelled"}
 
 
+@router.delete("/{task_id}/purge")
+async def purge_task(task_id: str):
+    """
+    Permanently delete a task and all its associated files.
+    
+    This will:
+    - Delete the original, ghost, and clean audio files
+    - Delete any video files if present
+    - Remove the task result from Redis/Celery backend
+    """
+    import os
+    
+    result = AsyncResult(task_id, app=celery_app)
+    deleted_files = []
+    errors = []
+    
+    # If task completed, try to delete its output files
+    if result.state == "SUCCESS" and result.result:
+        task_result = result.result
+        
+        # List of potential file paths to delete
+        file_keys = ["original_path", "ghost_path", "clean_path", "video_path"]
+        
+        for key in file_keys:
+            file_path = task_result.get(key)
+            if file_path:
+                try:
+                    path = Path(file_path)
+                    if path.exists():
+                        os.remove(path)
+                        deleted_files.append(str(path))
+                except Exception as e:
+                    errors.append(f"Failed to delete {file_path}: {str(e)}")
+        
+        # Also try to delete any merged video files
+        for audio_type in ["original", "ghost", "clean"]:
+            video_path = task_result.get("video_path")
+            if video_path:
+                merged_path = Path(video_path).parent / f"{task_id}_{audio_type}_merged{Path(video_path).suffix}"
+                if merged_path.exists():
+                    try:
+                        os.remove(merged_path)
+                        deleted_files.append(str(merged_path))
+                    except Exception as e:
+                        errors.append(f"Failed to delete {merged_path}: {str(e)}")
+    
+    # Also check for upload file
+    upload_patterns = [
+        OUTPUT_DIR.parent / "uploads" / f"{task_id}.*",
+    ]
+    for pattern in upload_patterns:
+        import glob
+        for upload_file in glob.glob(str(pattern)):
+            try:
+                os.remove(upload_file)
+                deleted_files.append(upload_file)
+            except Exception as e:
+                errors.append(f"Failed to delete {upload_file}: {str(e)}")
+    
+    # Revoke the task (in case it's still running) and forget it from backend
+    result.revoke(terminate=True)
+    result.forget()
+    
+    return {
+        "success": True,
+        "message": "Task purged",
+        "deleted_files": deleted_files,
+        "errors": errors if errors else None
+    }
+
+
 @router.get("/", response_model=List[TaskStatus])
 async def list_recent_tasks(limit: int = 10):
     """List recent tasks (simplified - in production would use database)"""
@@ -237,3 +308,4 @@ async def list_recent_tasks(limit: int = 10):
     # In production, you would store task metadata in a database
     
     return []
+
