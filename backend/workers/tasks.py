@@ -254,12 +254,16 @@ def separate_audio_task(
         # Load HuggingFace token
         backend_dir = Path(__file__).parent.parent
         token_file = backend_dir / ".hf_token"
+        hf_token = os.getenv("HF_TOKEN")
+        
         if token_file.exists():
             with open(token_file, "r") as f:
                 hf_token = f.read().strip()
+        
+        if hf_token:
             login(token=hf_token)
         else:
-            raise Exception("HuggingFace token not found. Please authenticate first.")
+            raise Exception("HuggingFace token not found. Please create 'backend/.hf_token' or set HF_TOKEN environment variable.")
         
         # Select model based on size
         model_name = f"facebook/sam-audio-{model_size}"

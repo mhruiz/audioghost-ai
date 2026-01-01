@@ -1,14 +1,14 @@
 FROM pytorch/pytorch:2.9.0-cuda12.6-cudnn9-runtime
 
 # Install system dependencies
-# ffmpeg is required for audio processing
-# git is required to install sam-audio from github
-# curl is good to have
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     git \
     curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Install uv for faster pip installs
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
@@ -16,11 +16,10 @@ WORKDIR /app
 # First copy requirements to utilize cache
 COPY backend/requirements.txt /app/backend/requirements.txt
 
-# Install SAM Audio from GitHub
-RUN pip install git+https://github.com/facebookresearch/sam-audio.git
-
-# Install backend dependencies
-RUN pip install -r /app/backend/requirements.txt
+# Install dependencies using uv with cache mount
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system git+https://github.com/facebookresearch/sam-audio.git && \
+    uv pip install --system -r /app/backend/requirements.txt
 
 # Copy the entire project
 COPY . /app

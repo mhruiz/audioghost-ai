@@ -8,6 +8,12 @@ This guide explains how to run the AudioGhost AI backend using Docker.
 - **NVIDIA GPU** with drivers installed.
 - **NVIDIA Container Toolkit** installed (for GPU support in Docker).
 
+### HuggingFace Token
+To download the models, you need a HuggingFace token with access to `facebook/sam-audio-large`.
+There are two ways to provide it:
+- **Environment File (Recommended)**: Create a file named `.env` in the root directory (you can copy `.env.example`) and set your token in `HF_TOKEN`.
+- **Token File**: Create a file named `.hf_token` inside the `backend/` directory and paste your token there.
+
 ## Setup
 
 1. **Verify Directories**
@@ -15,7 +21,7 @@ This guide explains how to run the AudioGhost AI backend using Docker.
    - `data/redis` (Redis persistence)
    - `data/uploads` (Audio uploads)
    - `data/outputs` (Processed audio)
-   - `data/checkpoints` (Model weights)
+   - `data/checkpoints` (Model weights - **Explicitly configured via `HF_HOME`**)
 
 2. **Build and Start**
    Run the following command to build the images and start the services:
@@ -23,6 +29,8 @@ This guide explains how to run the AudioGhost AI backend using Docker.
    ```bash
    docker-compose up -d --build
    ```
+
+   > 💡 **Faster Builds**: The Dockerfile now uses `uv` for ultra-fast dependency installation and caches packages during the build process.
 
    This will start:
    - **api**: The FastAPI backend (Port 8000)
@@ -65,10 +73,21 @@ To stop the services:
 docker-compose down
 ```
 
-## Data Persistence
-All data is stored in the `data/` directory in the project root.
+## Data Persistence & Cache Management
+
+### Saved Data
+All important data is stored in the `data/` directory in the project root:
 - **Redis data**: `data/redis`
 - **Files**: `data/uploads` and `data/outputs`
-- **Models**: `data/checkpoints`
+- **Models**: `data/checkpoints` (Configured via `HF_HOME=/app/checkpoints`)
 
-Use `docker-compose down -v` if you want to remove volumes (note: since we use bind mounts, the data in `data/` will actually PERSIST on your disk even if you remove volumes).
+### Build Cache (Advanced)
+We use `uv` with Docker's build cache (`--mount=type=cache`) to speed up re-builds. 
+- **Where is it?**: This cache is managed by Docker internally (usually in `/var/lib/docker/buildkit`). It is NOT in your project directory.
+- **How to clean it?**: If you want to free up space used by these cached packages (e.g., if you are running low on disk space), run:
+  
+  ```bash
+  docker builder prune
+  ```
+  
+  This command will ask for confirmation and delete **all** build caches (not just for this project). It is safe to run; the next build will simply download dependencies again.
