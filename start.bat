@@ -39,7 +39,7 @@ exit /b 1
 :redis_ready
 
 echo [2/4] Starting Backend API...
-start "AudioGhost Backend" cmd /k "cd /d %SCRIPT_DIR% && conda activate audioghost && cd backend && uvicorn main:app --reload --port 8000"
+start "AudioGhost Backend" cmd /k "cd /d %SCRIPT_DIR% && conda activate audioghost && cd backend && uvicorn main:app --reload --port 9722"
 
 echo [3/4] Starting Celery Worker...
 timeout /t 2 /nobreak >nul
@@ -55,8 +55,8 @@ echo ║              All Services Started! ✓                         ║
 echo ╠══════════════════════════════════════════════════════════════╣
 echo ║                                                              ║
 echo ║   Frontend:  http://localhost:3000                          ║
-echo ║   Backend:   http://localhost:8000                          ║
-echo ║   API Docs:  http://localhost:8000/docs                     ║
+echo ║   Backend:   http://localhost:9722                          ║
+echo ║   API Docs:  http://localhost:9722/docs                     ║
 echo ║                                                              ║
 echo ║   Four windows opened:                                      ║
 echo ║   - AudioGhost Redis (minimized)                            ║

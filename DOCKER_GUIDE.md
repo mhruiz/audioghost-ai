@@ -33,7 +33,7 @@ There are two ways to provide it:
    > 💡 **Faster Builds**: The Dockerfile now uses `uv` for ultra-fast dependency installation and caches packages during the build process.
 
    This will start:
-   - **api**: The FastAPI backend (Port 8000)
+   - **api**: The FastAPI backend (Port 9722)
    - **worker**: The Celery worker for processing audio
    - **redis_docker**: The Redis message broker (Port 6379)
 
@@ -51,9 +51,9 @@ docker compose logs -f
 ```
 
 ### Accessing the API
-The API is available at: http://localhost:8000
-- **Docs**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/health
+The API is available at: http://localhost:9722
+- **Docs**: http://localhost:9722/docs
+- **Health Check**: http://localhost:9722/health
 
 ### Processing Audio
 You can interact with the API via the Swagger UI (`/docs`) or using `curl`.
@@ -61,7 +61,7 @@ You can interact with the API via the Swagger UI (`/docs`) or using `curl`.
 **Example request:**
 ```bash
 curl -X 'POST' \
-  'http://localhost:8000/api/separate/' \
+  'http://localhost:9722/api/separate/' \
   -F 'file=@/path/to/your/audio.mp3' \
   -F 'description=vocals' \
   -F 'mode=extract'

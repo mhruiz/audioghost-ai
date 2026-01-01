@@ -44,7 +44,7 @@ pip install -r requirements.txt
 ### 7. 啟動 Backend API
 ```powershell
 cd d:\sam_audio\backend
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 9722
 ```
 
 ### 8. 啟動 Celery Worker (新終端機)

@@ -137,7 +137,7 @@ npm install
 **Terminal 1 - Backend API:**
 ```bash
 cd backend
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 9722
 ```
 
 **Terminal 2 - Celery Worker:**

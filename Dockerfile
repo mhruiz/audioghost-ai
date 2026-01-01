@@ -25,10 +25,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY . /app
 
 # Expose the API port
-EXPOSE 8000
+EXPOSE 9722
 
 # Default working directory for the application
 WORKDIR /app/backend
 
 # Default command (can be overridden by docker-compose)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9722"]
