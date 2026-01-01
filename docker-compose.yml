@@ -11,6 +11,9 @@ services:
       # Mount backend for hot-reload/development if needed, 
       # though the image has a copy. This overlays the local code.
       - ./backend:/app/backend
+      # Mount imagebind checkpoints -- it's a hardcoded path in the code
+      # so we need to mount it inside the code path in the container
+      - ./data/imagebind_checkpoints:/app/backend/.checkpoints
     environment:
       - REDIS_URL=redis://redis_docker:6379/0
       - HF_HOME=/app/checkpoints
@@ -34,6 +37,9 @@ services:
       - ./data/outputs:/app/backend/outputs
       - ./data/checkpoints:/app/checkpoints
       - ./backend:/app/backend
+      # Mount imagebind checkpoints -- it's a hardcoded path in the code
+      # so we need to mount it inside the code path in the container
+      - ./data/imagebind_checkpoints:/app/backend/.checkpoints
     environment:
       - REDIS_URL=redis://redis_docker:6379/0
       - HF_HOME=/app/checkpoints

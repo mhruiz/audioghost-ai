@@ -38,6 +38,7 @@ assets/
 .checkpoints/
 checkpoints/
 sam_audio.egg-info/
+*.pth
 
 # Test files and outputs
 *.mp3
