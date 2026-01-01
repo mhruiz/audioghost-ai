@@ -22,6 +22,57 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 _model_cache = {}
 _processor_cache = {}
 
+# Model loading status tracking
+# status: "offline" | "loading" | "ready"
+_model_status = {
+    "status": "offline",
+    "current_model": None,
+    "model_size": None,
+    "gpu_memory_gb": None
+}
+
+
+def get_model_status() -> dict:
+    """Get current model loading status"""
+    import torch
+    
+    status = _model_status.copy()
+    
+    # Update GPU memory if model is loaded
+    if status["status"] == "ready" and torch.cuda.is_available():
+        status["gpu_memory_gb"] = round(torch.cuda.memory_allocated() / 1024**3, 2)
+    
+    return status
+
+
+def unload_current_model() -> dict:
+    """Unload current model from GPU memory"""
+    import torch
+    global _model_status
+    
+    freed_memory = 0
+    if torch.cuda.is_available():
+        freed_memory = torch.cuda.memory_allocated() / 1024**3
+    
+    # Clear caches
+    for key in list(_model_cache.keys()):
+        del _model_cache[key]
+    for key in list(_processor_cache.keys()):
+        del _processor_cache[key]
+    
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    
+    _model_status = {
+        "status": "offline",
+        "current_model": None,
+        "model_size": None,
+        "gpu_memory_gb": None
+    }
+    
+    return {"freed_memory_gb": round(freed_memory, 2)}
+
 
 def update_progress(progress: int, message: str):
     """Update task progress"""
@@ -109,6 +160,10 @@ def create_lite_model(model_name: str, hf_token: str = None):
 def get_or_load_lite_model(model_name: str, hf_token: str, device: str, dtype):
     """Get cached lite model or create it - only keeps ONE model in memory"""
     import torch
+    global _model_status
+    
+    # Extract model size from name
+    model_size = model_name.split("-")[-1]  # e.g., "base" from "facebook/sam-audio-base"
     
     # Include dtype in cache key to ensure correct model is loaded
     dtype_str = "bf16" if dtype == torch.bfloat16 else "fp32"
@@ -119,6 +174,14 @@ def get_or_load_lite_model(model_name: str, hf_token: str, device: str, dtype):
     
     if cache_key not in _model_cache:
         print(f"[DEBUG] Cache miss - creating new lite model")
+        
+        # Update status to loading
+        _model_status = {
+            "status": "loading",
+            "current_model": model_name,
+            "model_size": model_size,
+            "gpu_memory_gb": None
+        }
         
         # IMPORTANT: Clear any existing models first to free memory
         if len(_model_cache) > 0:
@@ -140,8 +203,18 @@ def get_or_load_lite_model(model_name: str, hf_token: str, device: str, dtype):
         _model_cache[cache_key] = model
         _processor_cache[model_name] = processor
         
+        gpu_mem = None
         if torch.cuda.is_available():
-            print(f"[DEBUG] GPU Memory after loading: {torch.cuda.memory_allocated() / 1024**3:.2f} GB")
+            gpu_mem = round(torch.cuda.memory_allocated() / 1024**3, 2)
+            print(f"[DEBUG] GPU Memory after loading: {gpu_mem} GB")
+        
+        # Update status to ready
+        _model_status = {
+            "status": "ready",
+            "current_model": model_name,
+            "model_size": model_size,
+            "gpu_memory_gb": gpu_mem
+        }
     else:
         print(f"[DEBUG] Cache hit - using existing model")
     
@@ -156,6 +229,53 @@ def cleanup_gpu_memory():
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         gc.collect()
+
+
+@celery_app.task(bind=True)
+def preload_model_task(self, model_size: str = "base", use_float32: bool = False):
+    """
+    Preload a model into GPU memory without processing any audio.
+    
+    This is useful to warm up the model before the first request.
+    """
+    import torch
+    from huggingface_hub import login
+    
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    dtype = torch.float32 if use_float32 or device == "cpu" else torch.bfloat16
+    
+    print(f"[PRELOAD] Starting preload of {model_size} model...")
+    
+    # Load HuggingFace token
+    backend_dir = Path(__file__).parent.parent
+    token_file = backend_dir / ".hf_token"
+    hf_token = os.getenv("HF_TOKEN")
+    
+    if token_file.exists():
+        with open(token_file, "r") as f:
+            hf_token = f.read().strip()
+    
+    if hf_token:
+        login(token=hf_token)
+    else:
+        raise Exception("HuggingFace token not found. Please set HF_TOKEN environment variable.")
+    
+    model_name = f"facebook/sam-audio-{model_size}"
+    
+    # Load the model
+    model, processor = get_or_load_lite_model(model_name, hf_token, device, dtype)
+    
+    print(f"[PRELOAD] Model {model_size} preloaded successfully!")
+    
+    return {
+        "success": True,
+        "model_name": model_name,
+        "model_size": model_size,
+        "device": device,
+        "dtype": str(dtype)
+    }
+
+
 
 
 @celery_app.task(bind=True)

@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from api import auth, separate, tasks
+from api import auth, separate, tasks, models
 
 # Create necessary directories
 UPLOAD_DIR = Path("uploads")
@@ -40,6 +40,7 @@ app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(separate.router, prefix="/api/separate", tags=["Separation"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
+app.include_router(models.router, prefix="/api/models", tags=["Models"])
 
 
 @app.get("/")

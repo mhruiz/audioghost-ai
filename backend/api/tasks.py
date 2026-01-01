@@ -303,9 +303,58 @@ async def purge_task(task_id: str):
 
 @router.get("/", response_model=List[TaskStatus])
 async def list_recent_tasks(limit: int = 10):
-    """List recent tasks (simplified - in production would use database)"""
-    # Note: This is a simplified implementation
-    # In production, you would store task metadata in a database
+    """
+    List recent tasks by scanning the outputs directory.
     
-    return []
+    Determines task status based on file presence:
+    - If only .original.* exists → processing
+    - If .ghost.* and .clean.* exist → completed
+    """
+    import re
+    from collections import defaultdict
+    
+    # Pattern to match task files: {uuid}.{type}.{ext}
+    # Types: original, ghost, clean, video, extracted
+    file_pattern = re.compile(r"^([a-f0-9\-]{36})\.(\w+)\.\w+$")
+    
+    # Group files by task_id
+    tasks_files = defaultdict(set)
+    
+    if OUTPUT_DIR.exists():
+        for file in OUTPUT_DIR.iterdir():
+            if file.is_file():
+                match = file_pattern.match(file.name)
+                if match:
+                    task_id = match.group(1)
+                    file_type = match.group(2)
+                    tasks_files[task_id].add(file_type)
+    
+    # Build task status list
+    results = []
+    for task_id, file_types in tasks_files.items():
+        # Determine status based on which files exist
+        if "ghost" in file_types and "clean" in file_types:
+            status = "completed"
+            progress = 100
+            message = "Task completed"
+        elif "original" in file_types:
+            status = "processing"
+            progress = 50
+            message = "Task is being processed"
+        else:
+            status = "unknown"
+            progress = 0
+            message = "Unknown task state"
+        
+        results.append(TaskStatus(
+            task_id=task_id,
+            status=status,
+            progress=progress,
+            message=message
+        ))
+    
+    # Sort by task_id (which includes timestamp info in UUID v1) and limit
+    results.sort(key=lambda x: x.task_id, reverse=True)
+    return results[:limit]
+
 

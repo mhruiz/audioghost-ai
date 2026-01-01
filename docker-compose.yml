@@ -44,6 +44,7 @@ services:
       - REDIS_URL=redis://redis_docker:6379/0
       - HF_HOME=/app/checkpoints
       - HF_TOKEN=${HF_TOKEN}
+      - PRELOAD_MODEL=${PRELOAD_MODEL:-}
     # Use 'solo' pool for GPU tasks to avoid concurrency issues if VRAM is tight
     command: celery -A workers.celery_app worker --loglevel=info --pool=solo
     deploy:
