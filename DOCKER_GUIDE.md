@@ -27,7 +27,7 @@ There are two ways to provide it:
    Run the following command to build the images and start the services:
 
    ```bash
-   docker-compose up -d --build
+   docker compose up -d --build
    ```
 
    > 💡 **Faster Builds**: The Dockerfile now uses `uv` for ultra-fast dependency installation and caches packages during the build process.
@@ -42,12 +42,12 @@ There are two ways to provide it:
 ### Check Status
 Check if services are running:
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 View logs:
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ### Accessing the API
@@ -70,7 +70,7 @@ curl -X 'POST' \
 ### Stopping
 To stop the services:
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ## Data Persistence & Cache Management
